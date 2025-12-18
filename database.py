@@ -1,11 +1,12 @@
+import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite+aiosqlite:///./database.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./database.db")
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,  # Отключаем логи для тестов
 )
 
 async_session = sessionmaker(
@@ -21,12 +22,15 @@ async def get_db() -> AsyncSession:
     async with async_session() as session:
         try:
             yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+        finally:
+            await session.close()
 
 
 async def create_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+async def drop_tables() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
