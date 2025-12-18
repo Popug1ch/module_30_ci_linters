@@ -8,12 +8,23 @@ from database import get_db, create_tables
 from models import Recipe
 from schemas import RecipeIn, RecipeOut, RecipeListItem
 
+from contextlib import asynccontextmanager
+from database import create_tables
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await create_tables()
+    yield
+    # Shutdown
+
 app = FastAPI(
     title="Кулинарная книга",
     description="API для работы с рецептами (список и детальный просмотр).",
     version="1.0.0",
+    lifespan=lifespan,
 )
-
 
 @app.on_event("startup")
 async def on_startup() -> None:
