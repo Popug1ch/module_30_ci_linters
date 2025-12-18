@@ -1,36 +1,36 @@
 import asyncio
 import pytest
-import os
 from httpx import AsyncClient
 from main import app
 from database import Base
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 # Используем тестовую базу данных в памяти
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
+
 @pytest.fixture(scope="function")
 async def db_session():
     # Создаем тестовый engine
     test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-    
+
     # Создаем таблицы
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     # Создаем сессию
     async_session = sessionmaker(
         test_engine, class_=AsyncSession, expire_on_commit=False
     )
-    
+
     async with async_session() as session:
         yield session
-    
+
     # Очищаем таблицы после теста
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    
+
     await test_engine.dispose()
 
 
@@ -39,12 +39,14 @@ async def ac_client(db_session):
     # Переопределяем зависимость get_db
     async def override_get_db():
         yield db_session
-    
-    app.dependency_overrides[app.dependency_overrides.keys().__iter__().__next__()] = override_get_db
-    
+
+    app.dependency_overrides[app.dependency_overrides.keys().__iter__().__next__()] = (
+        override_get_db
+    )
+
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
-    
+
     # Очищаем переопределения после теста
     app.dependency_overrides.clear()
 
