@@ -9,30 +9,22 @@ class BaseRecipe(BaseModel):
 
 
 class RecipeIn(BaseRecipe):
-    """
-    Входящая схема для создания рецепта (POST /recipes).
-    """
+    """Входящая схема для создания рецепта (POST /recipes)."""
 
 
 class RecipeOut(BaseRecipe):
-    """
-    Схема для детального рецепта и создания.
-    """
+    """Схема для детального рецепта и создания."""
     id: int
     views: int
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True
 
 
 class RecipeListItem(BaseModel):
-    """
-    Схема для списка рецептов на главном экране.
-    """
+    """Схема для списка рецептов на главном экране."""
     id: int
     name: str
     cooking_time: int
     views: int
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
