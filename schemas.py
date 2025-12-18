@@ -17,7 +17,7 @@ class RecipeOut(BaseRecipe):
     id: int
     views: int
 
-    model_config = {"from_attributes": True
+    model_config = {"from_attributes": True}
 
 
 class RecipeListItem(BaseModel):
