@@ -2,12 +2,12 @@
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, Query
-from sqlalchemy import select, desc
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db, create_tables, drop_tables
+from database import Base, create_tables, drop_tables, get_db
 from models import Recipe
-from schemas import RecipeIn, RecipeOut, RecipeListItem
+from schemas import RecipeIn, RecipeListItem, RecipeOut
 from contextlib import asynccontextmanager
 
 
@@ -52,9 +52,7 @@ async def read_recipes(
 
 
 @app.get("/recipes/{recipe_id}", response_model=RecipeOut)
-async def read_recipe(
-    recipe_id: int, db: AsyncSession = Depends(get_db)
-) -> RecipeOut:
+async def read_recipe(recipe_id: int, db: AsyncSession = Depends(get_db)) -> RecipeOut:
     """Получить детальную информацию о рецепте.
 
     При каждом запросе счётчик просмотров увеличивается на 1.
