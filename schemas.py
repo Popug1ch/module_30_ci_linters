@@ -13,6 +13,7 @@ class RecipeIn(BaseRecipe):
 
 
 class RecipeOut(BaseRecipe):
+    """Схема для детального рецепта и создания."""
     id: int
     views: int
 
@@ -20,6 +21,7 @@ class RecipeOut(BaseRecipe):
 
 
 class RecipeListItem(BaseModel):
+    """Схема для списка рецептов на главном экране."""
     id: int
     name: str
     cooking_time: int
