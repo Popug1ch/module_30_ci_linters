@@ -1,26 +1,56 @@
+import asyncio
 import pytest
-import pytest_asyncio
+import os
 from httpx import AsyncClient
-
-from database import Base, engine
 from main import app
+from database import Base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 
+# Используем тестовую базу данных в памяти
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-@pytest_asyncio.fixture(scope="session")
-async def ac_client() -> AsyncClient:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+@pytest.fixture(scope="function")
+async def db_session():
+    # Создаем тестовый engine
+    test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    
+    # Создаем таблицы
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Создаем сессию
+    async_session = sessionmaker(
+        test_engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    async with async_session() as session:
+        yield session
+    
+    # Очищаем таблицы после теста
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    
+    await test_engine.dispose()
 
+
+@pytest.fixture(scope="function")
+async def ac_client(db_session):
+    # Переопределяем зависимость get_db
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[app.dependency_overrides.keys().__iter__().__next__()] = override_get_db
+    
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    
+    # Очищаем переопределения после теста
+    app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
-async def test_create_recipe(ac_client: AsyncClient) -> None:
+async def test_create_recipe(ac_client):
     response = await ac_client.post(
         "/recipes",
         json={
@@ -31,12 +61,17 @@ async def test_create_recipe(ac_client: AsyncClient) -> None:
         },
     )
     assert response.status_code == 201
-    data = response.json()
-    assert data["name"] == "Тестовый рецепт"
+    assert response.json()["name"] == "Тестовый рецепт"
 
 
 @pytest.mark.asyncio
-async def test_read_recipes(ac_client: AsyncClient) -> None:
+async def test_read_recipes(ac_client):
     response = await ac_client.get("/recipes")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+@pytest.mark.asyncio
+async def test_read_recipe_not_found(ac_client):
+    response = await ac_client.get("/recipes/999")
+    assert response.status_code == 404
