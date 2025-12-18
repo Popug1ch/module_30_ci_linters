@@ -1,29 +1,25 @@
 import pytest
 from httpx import AsyncClient
-import asyncio
 from main import app
 from database import engine, Base
 
 
+@pytest.fixture(scope="function")
+def event_loop():
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
 @pytest.fixture(scope="session")
-async def client():
-    """Async HTTP client fixture."""
-    # Очистка и создание таблиц
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-    
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
-    
-    # Очистка после тестов
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+async def ac_client():
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        yield client
 
 
 @pytest.mark.asyncio
-async def test_create_recipe(client: AsyncClient):
-    response = await client.post(
+async def test_create_recipe(ac_client):
+    response = await ac_client.post(
         "/recipes",
         json={
             "name": "Тестовый рецепт",
@@ -33,12 +29,11 @@ async def test_create_recipe(client: AsyncClient):
         },
     )
     assert response.status_code == 201
-    data = response.json()
-    assert data["name"] == "Тестовый рецепт"
+    assert response.json()["name"] == "Тестовый рецепт"
 
 
 @pytest.mark.asyncio
-async def test_read_recipes(client: AsyncClient):
-    response = await client.get("/recipes")
+async def test_read_recipes(ac_client):
+    response = await ac_client.get("/recipes")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
