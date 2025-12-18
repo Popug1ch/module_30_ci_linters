@@ -1,29 +1,27 @@
 """Кулинарная книга API."""
+from contextlib import asynccontextmanager
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, Query
-from sqlalchemy import select, desc
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db, create_tables
+from database import create_tables, get_db
 from models import Recipe
-from schemas import RecipeIn, RecipeOut, RecipeListItem
-from contextlib import asynccontextmanager
+from schemas import RecipeIn, RecipeListItem, RecipeOut
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     await create_tables()
     yield
-    # Shutdown
 
 
 app = FastAPI(
     title="Кулинарная книга",
     description="API для работы с рецептами (список и детальный просмотр).",
     version="1.0.0",
-    lifespan=lifespan,  # Только lifespan!
+    lifespan=lifespan,
 )
 
 
@@ -33,27 +31,23 @@ async def read_recipes(
     limit: int = Query(default=100, ge=1),
     db: AsyncSession = Depends(get_db),
 ) -> List[RecipeListItem]:
-    """Получить список всех рецептов.
-
-    Сортировка:
-    - по количеству просмотров (убывание);
-    - при равенстве просмотров — по времени готовки (возрастание).
-    """
-    stmt = select(Recipe).order_by(desc(Recipe.views), Recipe.cooking_time).offset(
-        skip
-    ).limit(limit)
+    """Получить список всех рецептов."""
+    stmt = (
+        select(Recipe)
+        .order_by(desc(Recipe.views), Recipe.cooking_time)
+        .offset(skip)
+        .limit(limit)
+    )
     result = await db.execute(stmt)
     return result.scalars().all()
 
 
 @app.get("/recipes/{recipe_id}", response_model=RecipeOut)
 async def read_recipe(
-    recipe_id: int, db: AsyncSession = Depends(get_db)
+    recipe_id: int,
+    db: AsyncSession = Depends(get_db),
 ) -> RecipeOut:
-    """Получить детальную информацию о рецепте.
-
-    При каждом запросе счётчик просмотров увеличивается на 1.
-    """
+    """Получить детальную информацию о рецепте."""
     recipe = await db.get(Recipe, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Рецепт не найден")
@@ -64,7 +58,8 @@ async def read_recipe(
 
 @app.post("/recipes", response_model=RecipeOut, status_code=201)
 async def create_recipe(
-    recipe_in: RecipeIn, db: AsyncSession = Depends(get_db)
+    recipe_in: RecipeIn,
+    db: AsyncSession = Depends(get_db),
 ) -> RecipeOut:
     """Создать новый рецепт."""
     recipe = Recipe(**recipe_in.model_dump())
