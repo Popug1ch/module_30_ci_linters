@@ -1,7 +1,7 @@
 """Кулинарная книга API"""
 
 from contextlib import asynccontextmanager
-from typing import List, Sequence
+from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy import desc, select
@@ -34,7 +34,7 @@ async def read_recipes(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1),
     db: AsyncSession = Depends(get_db),
-) -> Sequence[Recipe]:
+) -> List[RecipeListItem]:
     """Получить список всех рецептов."""
     stmt = (
         select(Recipe)
@@ -43,8 +43,11 @@ async def read_recipes(
         .limit(limit)
     )
     result = await db.execute(stmt)
-    recipes: Sequence[Recipe] = result.scalars().all()
-    return recipes
+    recipes = result.scalars().all()
+    # Преобразуем ORM-модели в Pydantic-схемы, чтобы типы совпали
+    return [RecipeListItem.model_validate(r) for r in recipes]
+    # Для pydantic<2:
+    # return [RecipeListItem.from_orm(r) for r in recipes]
 
 
 @app.get("/recipes/{recipe_id}", response_model=RecipeOut)
@@ -56,8 +59,11 @@ async def read_recipe(
     recipe = await db.get(Recipe, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Рецепт не найден")
-    # избегаем ColumnElement[int] в присваивании
-    recipe.views = int(recipe.views) + 1
+
+    # Подсказываем mypy, что работаем с обычным int, а не Column[int]
+    views: int = int(recipe.views)  # type: ignore[assignment]
+    recipe.views = views + 1        # type: ignore[assignment]
+
     await db.commit()
     await db.refresh(recipe)
     return recipe
