@@ -48,10 +48,7 @@ async def read_recipes(
 
 
 @app.get("/recipes/{recipe_id}", response_model=RecipeOut)
-async def read_recipe(
-    recipe_id: int, 
-    db: AsyncSession = Depends(get_db)
-) -> RecipeOut:
+async def read_recipe(recipe_id: int, db: AsyncSession = Depends(get_db)) -> RecipeOut:
     """Получить детальную информацию о рецепте."""
     recipe = await db.get(Recipe, recipe_id)
     if recipe is None:
