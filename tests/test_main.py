@@ -6,7 +6,6 @@ from database import Base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-# Используем тестовую базу данных в памяти
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
