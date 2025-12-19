@@ -62,7 +62,7 @@ async def read_recipe(
 
     # Подсказываем mypy, что работаем с обычным int, а не Column[int]
     views: int = int(recipe.views)  # type: ignore[assignment]
-    recipe.views = views + 1        # type: ignore[assignment]
+    recipe.views = views + 1  # type: ignore[assignment]
 
     await db.commit()
     await db.refresh(recipe)
