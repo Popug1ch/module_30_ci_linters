@@ -1,4 +1,4 @@
-"""Кулинарная книга API."""
+"""Кулинарная книга API"""
 
 from contextlib import asynccontextmanager
 from typing import List
