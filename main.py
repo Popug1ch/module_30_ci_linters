@@ -1,7 +1,7 @@
 """Кулинарная книга API"""
 
 from contextlib import asynccontextmanager
-from typing import List
+from typing import List, Sequence
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy import desc, select
@@ -34,7 +34,7 @@ async def read_recipes(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1),
     db: AsyncSession = Depends(get_db),
-) -> List[RecipeListItem]:
+) -> Sequence[Recipe]:
     """Получить список всех рецептов."""
     stmt = (
         select(Recipe)
@@ -43,24 +43,30 @@ async def read_recipes(
         .limit(limit)
     )
     result = await db.execute(stmt)
-    recipes = result.scalars().all()
+    recipes: Sequence[Recipe] = result.scalars().all()
     return recipes
 
 
 @app.get("/recipes/{recipe_id}", response_model=RecipeOut)
-async def read_recipe(recipe_id: int, db: AsyncSession = Depends(get_db)) -> RecipeOut:
+async def read_recipe(
+    recipe_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> RecipeOut:
     """Получить детальную информацию о рецепте."""
     recipe = await db.get(Recipe, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Рецепт не найден")
-    recipe.views += 1
+    # избегаем ColumnElement[int] в присваивании
+    recipe.views = int(recipe.views) + 1
     await db.commit()
+    await db.refresh(recipe)
     return recipe
 
 
 @app.post("/recipes", response_model=RecipeOut, status_code=201)
 async def create_recipe(
-    recipe_in: RecipeIn, db: AsyncSession = Depends(get_db)
+    recipe_in: RecipeIn,
+    db: AsyncSession = Depends(get_db),
 ) -> RecipeOut:
     """Создать новый рецепт."""
     recipe = Recipe(**recipe_in.model_dump())
@@ -71,6 +77,6 @@ async def create_recipe(
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Проверка здоровья API."""
     return {"status": "healthy"}
