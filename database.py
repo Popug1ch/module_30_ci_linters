@@ -6,7 +6,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./database.db")
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=False,  # Отключаем логи для тестов
+    echo=False,  # Отключаем логи
 )
 
 async_session = sessionmaker(
