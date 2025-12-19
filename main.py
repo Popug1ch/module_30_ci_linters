@@ -1,40 +1,36 @@
-"""Кулинарная книга API."""
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, Query
-from sqlalchemy import desc, select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Base, create_tables, drop_tables, get_db
+from database import get_db, create_tables
 from models import Recipe
-from schemas import RecipeIn, RecipeListItem, RecipeOut
-from contextlib import asynccontextmanager
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    await create_tables()
-    yield
-    # Shutdown
-    await drop_tables()  # Очищаем базу при завершении
-
+from schemas import RecipeIn, RecipeOut, RecipeListItem
 
 app = FastAPI(
     title="Кулинарная книга",
     description="API для работы с рецептами (список и детальный просмотр).",
     version="1.0.0",
-    lifespan=lifespan,
 )
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    """
+    Создание таблиц при старте приложения.
+    """
+    await create_tables()
 
 
 @app.get("/recipes", response_model=List[RecipeListItem])
 async def read_recipes(
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1),
     db: AsyncSession = Depends(get_db),
-) -> List[RecipeListItem]:
-    """Получить список всех рецептов.
+):
+    """
+    Получить список всех рецептов.
 
     Сортировка:
     - по количеству просмотров (убывание);
@@ -47,37 +43,37 @@ async def read_recipes(
         .limit(limit)
     )
     result = await db.execute(stmt)
-    recipes = result.scalars().all()
-    return recipes
+    return result.scalars().all()
 
 
 @app.get("/recipes/{recipe_id}", response_model=RecipeOut)
-async def read_recipe(recipe_id: int, db: AsyncSession = Depends(get_db)) -> RecipeOut:
-    """Получить детальную информацию о рецепте.
+async def read_recipe(
+    recipe_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Получить детальную информацию о рецепте.
 
     При каждом запросе счётчик просмотров увеличивается на 1.
     """
     recipe = await db.get(Recipe, recipe_id)
-    if recipe is None:
+    if not recipe:
         raise HTTPException(status_code=404, detail="Рецепт не найден")
+
     recipe.views += 1
-    await db.commit()
+    await db.flush()
     return recipe
 
 
 @app.post("/recipes", response_model=RecipeOut, status_code=201)
 async def create_recipe(
-    recipe_in: RecipeIn, db: AsyncSession = Depends(get_db)
-) -> RecipeOut:
-    """Создать новый рецепт."""
-    recipe = Recipe(**recipe_in.model_dump())
+    recipe_in: RecipeIn,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Создать новый рецепт.
+    """
+    recipe = Recipe(**recipe_in.dict())
     db.add(recipe)
-    await db.commit()
-    await db.refresh(recipe)
+    await db.flush()
     return recipe
-
-
-@app.get("/health")
-async def health_check():
-    """Проверка здоровья API."""
-    return {"status": "healthy"}
