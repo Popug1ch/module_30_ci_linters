@@ -1,11 +1,14 @@
 import asyncio
+
 import pytest
 from httpx import AsyncClient
-from main import app
-from database import Base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from database import Base, get_db
+from main import app
+
+# Используем тестовую базу данных в памяти
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
@@ -39,9 +42,7 @@ async def ac_client(db_session):
     async def override_get_db():
         yield db_session
 
-    app.dependency_overrides[app.dependency_overrides.keys().__iter__().__next__()] = (
-        override_get_db
-    )
+    app.dependency_overrides[get_db] = override_get_db
 
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
